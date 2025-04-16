@@ -37,16 +37,22 @@ const mockUser: User = {
 const AUTH_STORAGE_KEY = "instagram_clone_auth";
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  // Initialize from localStorage if available
-  const storedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
-  const initialAuth = storedAuth ? JSON.parse(storedAuth) : false;
+  // Force clear any existing auth state when the app loads
+  useEffect(() => {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+  }, []);
   
-  const [currentUser, setCurrentUser] = useState<User | null>(initialAuth ? mockUser : null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(initialAuth);
+  // Always start with logged out state
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   // Update localStorage when auth state changes
   useEffect(() => {
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(isAuthenticated));
+    if (isAuthenticated) {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(true));
+    } else {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
   }, [isAuthenticated]);
 
   const login = () => {
@@ -57,6 +63,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     setCurrentUser(null);
     setIsAuthenticated(false);
+    localStorage.removeItem(AUTH_STORAGE_KEY);
   };
 
   const checkAuth = () => {
