@@ -1,5 +1,5 @@
 
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 
 interface User {
   id: string;
@@ -17,6 +17,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: () => void;
   logout: () => void;
+  checkAuth: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,9 +33,21 @@ const mockUser: User = {
   postsCount: 15,
 };
 
+// Use localStorage to persist auth state
+const AUTH_STORAGE_KEY = "instagram_clone_auth";
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(mockUser);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  // Initialize from localStorage if available
+  const storedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
+  const initialAuth = storedAuth ? JSON.parse(storedAuth) : true;
+  
+  const [currentUser, setCurrentUser] = useState<User | null>(initialAuth ? mockUser : null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(initialAuth);
+
+  // Update localStorage when auth state changes
+  useEffect(() => {
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(isAuthenticated));
+  }, [isAuthenticated]);
 
   const login = () => {
     setCurrentUser(mockUser);
@@ -46,8 +59,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthenticated(false);
   };
 
+  const checkAuth = () => {
+    return isAuthenticated;
+  };
+
   return (
-    <AuthContext.Provider value={{ currentUser, isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ currentUser, isAuthenticated, login, logout, checkAuth }}>
       {children}
     </AuthContext.Provider>
   );

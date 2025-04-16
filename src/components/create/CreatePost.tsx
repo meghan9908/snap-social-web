@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, Image, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,10 +12,20 @@ const CreatePost = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
   const { addPost } = usePosts();
-  const { currentUser } = useAuth();
+  const { currentUser, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
+  useEffect(() => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to create posts"
+      });
+      navigate('/profile', { state: { requireAuth: true } });
+    }
+  }, [isAuthenticated, navigate, toast]);
+
   const demoImages = [
     "https://images.unsplash.com/photo-1649972904349-6e44c42644a7?auto=format&fit=crop&w=600",
     "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?auto=format&fit=crop&w=600",
@@ -56,9 +65,10 @@ const CreatePost = () => {
     navigate('/');
   };
 
+  if (!isAuthenticated) return null;
+
   return (
     <div className="fixed inset-0 bg-background z-50 flex flex-col">
-      {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
         <Button variant="ghost" size="icon" onClick={handleCancel}>
           <X className="h-6 w-6" />
@@ -78,55 +88,52 @@ const CreatePost = () => {
         )}
       </div>
 
-      {/* Content */}
-      {step === 'select' ? (
-        <div className="flex-1 p-4 overflow-auto">
-          <p className="text-center mb-4">Select a photo to share</p>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            {demoImages.map((image, index) => (
-              <div 
-                key={index} 
-                onClick={() => handleSelectImage(image)}
-                className="aspect-square cursor-pointer relative overflow-hidden rounded-md hover:opacity-90 transition-opacity"
-              >
-                <img 
-                  src={image} 
-                  alt={`Demo ${index}`} 
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity">
-                  <Image className="h-8 w-8 text-white" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="flex-1 flex flex-col">
-          {selectedImage && (
-            <div className="p-4 border-b">
-              <img
-                src={selectedImage}
-                alt="Selected"
-                className="w-full max-h-80 object-contain"
+      <div className="flex-1 p-4 overflow-auto">
+        <p className="text-center mb-4">Select a photo to share</p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {demoImages.map((image, index) => (
+            <div 
+              key={index} 
+              onClick={() => handleSelectImage(image)}
+              className="aspect-square cursor-pointer relative overflow-hidden rounded-md hover:opacity-90 transition-opacity"
+            >
+              <img 
+                src={image} 
+                alt={`Demo ${index}`} 
+                className="w-full h-full object-cover"
               />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity">
+                <Image className="h-8 w-8 text-white" />
+              </div>
             </div>
-          )}
-          <div className="p-4 flex-1">
-            <Textarea
-              placeholder="Write a caption..."
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              className="w-full h-40 resize-none"
+          ))}
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col">
+        {selectedImage && (
+          <div className="p-4 border-b">
+            <img
+              src={selectedImage}
+              alt="Selected"
+              className="w-full max-h-80 object-contain"
             />
           </div>
-          <div className="p-4 border-t">
-            <Button onClick={handleShare} className="w-full instagram-gradient text-white">
-              Share
-            </Button>
-          </div>
+        )}
+        <div className="p-4 flex-1">
+          <Textarea
+            placeholder="Write a caption..."
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            className="w-full h-40 resize-none"
+          />
         </div>
-      )}
+        <div className="p-4 border-t">
+          <Button onClick={handleShare} className="w-full instagram-gradient text-white">
+            Share
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };

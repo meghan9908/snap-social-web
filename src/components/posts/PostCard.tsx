@@ -7,6 +7,8 @@ import { usePosts, Post } from "@/context/PostsContext";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 interface PostCardProps {
   post: Post;
@@ -17,9 +19,21 @@ const PostCard = ({ post }: PostCardProps) => {
   const [showAllComments, setShowAllComments] = useState(false);
   const { likePost, addComment } = usePosts();
   const { toast } = useToast();
+  const { isAuthenticated, login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmitComment = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to comment on posts",
+      });
+      navigate('/profile');
+      return;
+    }
+    
     if (comment.trim()) {
       addComment(post.id, comment);
       setComment("");
@@ -28,6 +42,51 @@ const PostCard = ({ post }: PostCardProps) => {
         description: "Your comment was added to the post!",
       });
     }
+  };
+
+  const handleLikePost = () => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to like posts",
+      });
+      navigate('/profile');
+      return;
+    }
+    
+    likePost(post.id);
+  };
+
+  const handleSharePost = () => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to share posts",
+      });
+      navigate('/profile');
+      return;
+    }
+    
+    toast({
+      title: "Share feature",
+      description: "This feature is coming soon!",
+    });
+  };
+
+  const handleSavePost = () => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to save posts",
+      });
+      navigate('/profile');
+      return;
+    }
+    
+    toast({
+      title: "Save feature",
+      description: "This feature is coming soon!",
+    });
   };
 
   const displayedComments = showAllComments 
@@ -65,7 +124,7 @@ const PostCard = ({ post }: PostCardProps) => {
               variant="ghost" 
               size="icon" 
               className="rounded-full" 
-              onClick={() => likePost(post.id)}
+              onClick={handleLikePost}
             >
               <Heart 
                 className={cn(
@@ -74,14 +133,38 @@ const PostCard = ({ post }: PostCardProps) => {
                 )} 
               />
             </Button>
-            <Button variant="ghost" size="icon" className="rounded-full">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="rounded-full"
+              onClick={() => {
+                if (!isAuthenticated) {
+                  toast({
+                    title: "Authentication required",
+                    description: "Please log in to comment on posts",
+                  });
+                  navigate('/profile');
+                  return;
+                }
+              }}
+            >
               <MessageCircle className="h-6 w-6" />
             </Button>
-            <Button variant="ghost" size="icon" className="rounded-full">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="rounded-full"
+              onClick={handleSharePost}
+            >
               <Send className="h-6 w-6" />
             </Button>
           </div>
-          <Button variant="ghost" size="icon" className="rounded-full">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="rounded-full"
+            onClick={handleSavePost}
+          >
             <Bookmark className="h-6 w-6" />
           </Button>
         </div>
@@ -128,16 +211,27 @@ const PostCard = ({ post }: PostCardProps) => {
         <Textarea
           value={comment}
           onChange={(e) => setComment(e.target.value)}
-          placeholder="Add a comment..."
+          placeholder={isAuthenticated ? "Add a comment..." : "Log in to comment"}
           className="min-h-0 h-9 resize-none border-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+          disabled={!isAuthenticated}
         />
-        {comment.trim() && (
+        {comment.trim() && isAuthenticated && (
           <Button 
             type="submit" 
             variant="ghost" 
             className="text-primary font-semibold ml-2 h-9 px-3"
           >
             Post
+          </Button>
+        )}
+        {!isAuthenticated && (
+          <Button 
+            type="button" 
+            variant="ghost" 
+            className="text-primary font-semibold ml-2 h-9 px-3"
+            onClick={() => navigate('/profile')}
+          >
+            Log in
           </Button>
         )}
       </form>
