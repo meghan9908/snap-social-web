@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { SignedIn, SignedOut, RedirectToSignIn } from "@clerk/clerk-react";
 
 import Index from "./pages/Index";
 import ExplorePage from "./pages/ExplorePage";
@@ -12,10 +13,21 @@ import ActivityPage from "./pages/ActivityPage";
 import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
 import Layout from "./components/Layout";
-import { AuthProvider } from "./context/AuthContext";
 import { PostsProvider } from "./context/PostsContext";
+import { ClerkUserProvider } from "./context/ClerkUserContext";
 
 const queryClient = new QueryClient();
+
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <>
+      <SignedIn>{children}</SignedIn>
+      <SignedOut>
+        <RedirectToSignIn />
+      </SignedOut>
+    </>
+  );
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -23,7 +35,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthProvider>
+        <ClerkUserProvider>
           <PostsProvider>
             <Routes>
               <Route path="/" element={<Layout><Index /></Layout>} />
@@ -35,13 +47,22 @@ const App = () => (
                   </Layout>
                 } 
               />
-              <Route path="/create" element={<Layout><CreatePage /></Layout>} />
+              <Route 
+                path="/create" 
+                element={
+                  <ProtectedRoute>
+                    <Layout><CreatePage /></Layout>
+                  </ProtectedRoute>
+                } 
+              />
               <Route 
                 path="/activity" 
                 element={
-                  <Layout>
-                    <ActivityPage />
-                  </Layout>
+                  <ProtectedRoute>
+                    <Layout>
+                      <ActivityPage />
+                    </Layout>
+                  </ProtectedRoute>
                 } 
               />
               <Route 
@@ -55,7 +76,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </PostsProvider>
-        </AuthProvider>
+        </ClerkUserProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
