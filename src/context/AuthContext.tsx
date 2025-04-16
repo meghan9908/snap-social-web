@@ -16,6 +16,7 @@ interface AuthContextType {
   currentUser: User | null;
   isAuthenticated: boolean;
   login: () => void;
+  loginWithGoogle: () => void;
   logout: () => void;
   checkAuth: () => boolean;
 }
@@ -33,13 +34,26 @@ const mockUser: User = {
   postsCount: 15,
 };
 
+const mockGoogleUser: User = {
+  id: "user2",
+  username: "googleuser",
+  name: "Google User",
+  avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?q=80&w=200&auto=format",
+  bio: "Signed in with Google | Tech enthusiast",
+  followers: 215,
+  following: 176,
+  postsCount: 8,
+};
+
 // Use localStorage to persist auth state
 const AUTH_STORAGE_KEY = "instagram_clone_auth";
+const AUTH_METHOD_KEY = "instagram_clone_auth_method";
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Force clear any existing auth state when the app loads
   useEffect(() => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem(AUTH_METHOD_KEY);
   }, []);
   
   // Always start with logged out state
@@ -52,18 +66,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(true));
     } else {
       localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem(AUTH_METHOD_KEY);
     }
   }, [isAuthenticated]);
 
   const login = () => {
     setCurrentUser(mockUser);
     setIsAuthenticated(true);
+    localStorage.setItem(AUTH_METHOD_KEY, "regular");
+  };
+
+  const loginWithGoogle = () => {
+    setCurrentUser(mockGoogleUser);
+    setIsAuthenticated(true);
+    localStorage.setItem(AUTH_METHOD_KEY, "google");
   };
 
   const logout = () => {
     setCurrentUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem(AUTH_METHOD_KEY);
   };
 
   const checkAuth = () => {
@@ -71,7 +94,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, isAuthenticated, login, logout, checkAuth }}>
+    <AuthContext.Provider value={{ currentUser, isAuthenticated, login, loginWithGoogle, logout, checkAuth }}>
       {children}
     </AuthContext.Provider>
   );
