@@ -74,7 +74,7 @@ const CreatePost = () => {
             Back
           </Button>
         ) : (
-          <div className="w-10"></div> {/* Spacer for alignment */}
+          <div className="w-10"></div>
         )}
       </div>
 
