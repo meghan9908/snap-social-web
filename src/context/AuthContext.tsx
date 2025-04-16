@@ -39,7 +39,7 @@ const AUTH_STORAGE_KEY = "instagram_clone_auth";
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Initialize from localStorage if available
   const storedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
-  const initialAuth = storedAuth ? JSON.parse(storedAuth) : true;
+  const initialAuth = storedAuth ? JSON.parse(storedAuth) : false;
   
   const [currentUser, setCurrentUser] = useState<User | null>(initialAuth ? mockUser : null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(initialAuth);

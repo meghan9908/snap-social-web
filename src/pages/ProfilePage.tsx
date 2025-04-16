@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { LogOut } from "lucide-react";
 
 const ProfilePage = () => {
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated, login, logout } = useAuth();
   const { toast } = useToast();
   const location = useLocation();
 
@@ -21,6 +22,14 @@ const ProfilePage = () => {
       });
     }
   }, [location.state, toast]);
+
+  const handleLogout = () => {
+    logout();
+    toast({
+      title: "Logged out successfully",
+      description: "You have been logged out of your account"
+    });
+  };
 
   if (!isAuthenticated) {
     return (
@@ -45,6 +54,17 @@ const ProfilePage = () => {
 
   return (
     <div className="container pb-16">
+      <div className="flex justify-end mt-4">
+        <Button 
+          onClick={handleLogout} 
+          variant="outline" 
+          size="sm" 
+          className="mb-2"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Logout
+        </Button>
+      </div>
       <ProfileHeader />
       <ProfilePosts />
     </div>
