@@ -1,6 +1,8 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { useAuth } from "@/context/ClerkUserContext";
+import { useUser } from "@clerk/clerk-react";
 
 interface Story {
   id: string;
@@ -42,19 +44,25 @@ const stories: Story[] = [
 ];
 
 const StoriesBar = () => {
+  const { user } = useUser();
+  
   return (
     <div className="py-4 mb-1">
       <ScrollArea className="w-full">
         <div className="flex space-x-4 px-4">
           {stories.map((story) => (
             <div key={story.id} className="flex flex-col items-center">
-              <div className="story-ring flex items-center justify-center mb-1">
-                <Avatar className="w-16 h-16 border-2 border-background">
-                  <AvatarImage src={story.avatar} />
-                  <AvatarFallback>{story.username.charAt(0).toUpperCase()}</AvatarFallback>
-                </Avatar>
+              <div className="relative mb-1">
+                <div className="rounded-full bg-gradient-to-tr from-yellow-400 to-pink-600 p-[2px]">
+                  <div className="rounded-full bg-white p-[2px]">
+                    <Avatar className="w-16 h-16">
+                      <AvatarImage src={story.avatar} />
+                      <AvatarFallback>{story.username.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                  </div>
+                </div>
               </div>
-              <span className="text-xs truncate w-16 text-center">{story.username}</span>
+              <span className="text-xs truncate w-16 text-center">{story.id === "1" && user ? "Your story" : story.username}</span>
             </div>
           ))}
         </div>
