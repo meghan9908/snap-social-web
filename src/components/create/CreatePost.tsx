@@ -1,10 +1,12 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, Image, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { usePosts } from "@/context/PostsContext";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/ClerkUserContext";
+import { useUser } from "@clerk/clerk-react";
 import { useToast } from "@/components/ui/use-toast";
 
 const CreatePost = () => {
@@ -12,7 +14,8 @@ const CreatePost = () => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
   const { addPost } = usePosts();
-  const { currentUser, isAuthenticated } = useAuth();
+  const { isAuthenticated, currentUser } = useAuth();
+  const { user } = useUser();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -40,11 +43,11 @@ const CreatePost = () => {
   };
 
   const handleShare = () => {
-    if (!selectedImage || !currentUser) return;
+    if (!selectedImage || !user) return;
     
     addPost({
-      username: currentUser.username,
-      userAvatar: currentUser.avatar,
+      username: user.username || user.firstName || 'user',
+      userAvatar: user.imageUrl,
       imageUrl: selectedImage,
       caption: caption,
       likes: 0,

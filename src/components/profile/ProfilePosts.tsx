@@ -2,14 +2,18 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Grid, Bookmark, TagIcon } from "lucide-react";
 import { usePosts } from "@/context/PostsContext";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/ClerkUserContext";
+import { useUser } from "@clerk/clerk-react";
 
 const ProfilePosts = () => {
   const { posts } = usePosts();
+  const { user } = useUser();
   const { currentUser } = useAuth();
 
   // Filter posts by the current user
-  const userPosts = posts.filter(post => post.username === currentUser?.username);
+  const userPosts = posts.filter(post => 
+    user && post.username === (user.username || user.firstName || 'user')
+  );
 
   return (
     <Tabs defaultValue="posts" className="w-full">

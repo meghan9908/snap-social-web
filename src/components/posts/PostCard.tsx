@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { usePosts, Post } from "@/context/PostsContext";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/context/ClerkUserContext";
 import { useNavigate } from "react-router-dom";
 
 interface PostCardProps {
@@ -19,7 +18,7 @@ const PostCard = ({ post }: PostCardProps) => {
   const [showAllComments, setShowAllComments] = useState(false);
   const { likePost, addComment } = usePosts();
   const { toast } = useToast();
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmitComment = (e: React.FormEvent) => {
