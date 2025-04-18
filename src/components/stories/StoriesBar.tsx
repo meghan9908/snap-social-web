@@ -38,18 +38,16 @@ const StoriesBar = () => {
       // Fetch stories that haven't expired
       const { data: storiesData, error } = await supabase
         .from('stories')
-        .select(`
-          id,
-          image_url,
-          user_id,
-          created_at,
-          expires_at,
-          profiles (username, avatar_url)
-        `)
+        .select('id, image_url, user_id, created_at, expires_at')
         .gte('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+
+      // Get user profiles data separately since there's no relation
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url');
 
       const currentUserData = await supabase.auth.getSession();
       const userId = currentUserData?.data?.session?.user?.id || '';
@@ -60,11 +58,13 @@ const StoriesBar = () => {
         .eq('user_id', userId);
 
       const formattedStories: Story[] = (storiesData || []).map(story => {
-        // Handle case where profiles relation might not exist
-        const username = story.profiles?.username || 
-                       (story.user_id === userId && user?.username) || 
-                       'unknown';
-        const avatarUrl = story.profiles?.avatar_url || 
+        // Find matching profile for this story's user_id
+        const userProfile = profilesData?.find(profile => profile.id === story.user_id);
+        
+        const username = userProfile?.username || 
+                        (story.user_id === userId && user?.username) || 
+                        'unknown';
+        const avatarUrl = userProfile?.avatar_url || 
                         (story.user_id === userId && user?.imageUrl) || 
                         '';
         

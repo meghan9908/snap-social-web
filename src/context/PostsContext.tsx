@@ -46,18 +46,14 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data: postsData, error: postsError } = await supabase
         .from('posts')
-        .select(`
-          id,
-          image_url,
-          caption,
-          likes_count,
-          created_at,
-          user_id,
-          profiles (username, avatar_url)
-        `)
-        .order('created_at', { ascending: false });
+        .select('id, image_url, caption, likes_count, created_at, user_id');
 
       if (postsError) throw postsError;
+
+      // Get user profiles data separately since there's no relation
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url');
 
       const currentUser = await supabase.auth.getSession();
       const userId = currentUser?.data?.session?.user?.id;
@@ -69,22 +65,36 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
 
       const { data: commentsData } = await supabase
         .from('comments')
-        .select(`
-          id,
-          post_id,
-          text,
-          created_at,
-          profiles (username)
-        `);
+        .select('id, post_id, text, created_at, user_id');
 
       const formattedPosts: Post[] = (postsData || []).map(post => {
-        // Handle case where profiles relation might not exist
-        const username = post.profiles?.username || 
+        // Find matching profile for this post's user_id
+        const userProfile = profilesData?.find(profile => profile.id === post.user_id);
+        
+        const username = userProfile?.username || 
                        (post.user_id === userId && user?.username) || 
                        'unknown';
-        const avatarUrl = post.profiles?.avatar_url || 
+        const avatarUrl = userProfile?.avatar_url || 
                         (post.user_id === userId && user?.imageUrl) || 
                         '';
+        
+        const postComments = (commentsData || [])
+          .filter(comment => comment.post_id === post.id)
+          .map(comment => {
+            // Find matching profile for this comment's user_id
+            const commentUserProfile = profilesData?.find(profile => profile.id === comment.user_id);
+            
+            const commentUsername = commentUserProfile?.username || 
+                                  (comment.user_id === userId && user?.username) || 
+                                  'unknown';
+            
+            return {
+              id: comment.id,
+              username: commentUsername,
+              text: comment.text,
+              timestamp: new Date(comment.created_at).toLocaleDateString()
+            };
+          });
         
         return {
           id: post.id,
@@ -94,16 +104,7 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
           caption: post.caption || '',
           likes: post.likes_count || 0,
           isLiked: (likesData || []).some(like => like.post_id === post.id),
-          comments: (commentsData || [])
-            .filter(comment => comment.post_id === post.id)
-            .map(comment => ({
-              id: comment.id,
-              username: comment.profiles?.username || 
-                      user?.username || 
-                      'unknown',
-              text: comment.text,
-              timestamp: new Date(comment.created_at).toLocaleDateString()
-            })),
+          comments: postComments,
           timestamp: new Date(post.created_at).toLocaleDateString()
         };
       });
