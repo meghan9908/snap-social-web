@@ -62,6 +62,24 @@ export type Database = {
         }
         Relationships: []
       }
+      hashtags: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       likes: {
         Row: {
           created_at: string | null
@@ -91,6 +109,39 @@ export type Database = {
           },
         ]
       }
+      post_hashtags: {
+        Row: {
+          created_at: string | null
+          hashtag_id: string
+          post_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          hashtag_id: string
+          post_id: string
+        }
+        Update: {
+          created_at?: string | null
+          hashtag_id?: string
+          post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_hashtags_hashtag_id_fkey"
+            columns: ["hashtag_id"]
+            isOneToOne: false
+            referencedRelation: "hashtags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_hashtags_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       posts: {
         Row: {
           caption: string | null
@@ -98,7 +149,9 @@ export type Database = {
           id: string
           image_url: string
           likes_count: number | null
+          media_type: string | null
           user_id: string
+          video_url: string | null
         }
         Insert: {
           caption?: string | null
@@ -106,7 +159,9 @@ export type Database = {
           id?: string
           image_url: string
           likes_count?: number | null
+          media_type?: string | null
           user_id: string
+          video_url?: string | null
         }
         Update: {
           caption?: string | null
@@ -114,7 +169,9 @@ export type Database = {
           id?: string
           image_url?: string
           likes_count?: number | null
+          media_type?: string | null
           user_id?: string
+          video_url?: string | null
         }
         Relationships: []
       }
@@ -151,21 +208,27 @@ export type Database = {
           expires_at: string
           id: string
           image_url: string
+          media_type: string | null
           user_id: string
+          video_url: string | null
         }
         Insert: {
           created_at?: string | null
           expires_at: string
           id?: string
           image_url: string
+          media_type?: string | null
           user_id: string
+          video_url?: string | null
         }
         Update: {
           created_at?: string | null
           expires_at?: string
           id?: string
           image_url?: string
+          media_type?: string | null
           user_id?: string
+          video_url?: string | null
         }
         Relationships: []
       }

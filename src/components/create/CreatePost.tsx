@@ -1,24 +1,28 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, Image, ChevronLeft } from "lucide-react";
+import { X, Image, ChevronLeft, Upload, Film } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { usePosts } from "@/context/PostsContext";
 import { useAuth } from "@/context/ClerkUserContext";
 import { useUser } from "@clerk/clerk-react";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const CreatePost = () => {
   const [step, setStep] = useState<'select' | 'caption'>('select');
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
   const [caption, setCaption] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
   const { addPost } = usePosts();
-  const { isAuthenticated, currentUser } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { user } = useUser();
   const navigate = useNavigate();
   const { toast } = useToast();
-  
+
   useEffect(() => {
     if (!isAuthenticated) {
       toast({
@@ -29,39 +33,80 @@ const CreatePost = () => {
     }
   }, [isAuthenticated, navigate, toast]);
 
-  const demoImages = [
-    "https://images.unsplash.com/photo-1649972904349-6e44c42644a7?auto=format&fit=crop&w=600",
-    "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?auto=format&fit=crop&w=600",
-    "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=600",
-    "https://images.unsplash.com/photo-1582562124811-c09040d0a901?auto=format&fit=crop&w=600",
-    "https://images.unsplash.com/photo-1721322800607-8c38375eef04?auto=format&fit=crop&w=600"
-  ];
+  const handleFileSelect = (file: File) => {
+    if (!file) return;
 
-  const handleSelectImage = (image: string) => {
-    setSelectedImage(image);
+    const isImage = file.type.startsWith('image/');
+    const isVideo = file.type.startsWith('video/');
+
+    if (!isImage && !isVideo) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image or video file",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const fileURL = URL.createObjectURL(file);
+    setSelectedFile(file);
+    setMediaPreview(fileURL);
+    setMediaType(isImage ? 'image' : 'video');
     setStep('caption');
   };
 
-  const handleShare = () => {
-    if (!selectedImage || !user) return;
-    
-    addPost({
-      username: user.username || user.firstName || 'user',
-      userAvatar: user.imageUrl,
-      imageUrl: selectedImage,
-      caption: caption,
-      likes: 0,
-      isLiked: false,
-      comments: [],
-      timestamp: "Just now"
-    });
-    
-    toast({
-      title: "Post created!",
-      description: "Your post has been shared successfully."
-    });
-    
-    navigate('/');
+  const handleShare = async () => {
+    if (!selectedFile || !user || isUploading) return;
+
+    setIsUploading(true);
+    try {
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('posts')
+        .upload(filePath, selectedFile);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('posts')
+        .getPublicUrl(filePath);
+
+      // Create post
+      const postData = {
+        user_id: user.id,
+        caption,
+        image_url: mediaType === 'image' ? publicUrl : null,
+        video_url: mediaType === 'video' ? publicUrl : null,
+        media_type: mediaType
+      };
+
+      const { error: postError } = await supabase
+        .from('posts')
+        .insert(postData);
+
+      if (postError) throw postError;
+
+      toast({
+        title: "Post created!",
+        description: "Your post has been shared successfully."
+      });
+
+      navigate('/');
+    } catch (error) {
+      console.error('Error creating post:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create post. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleCancel = () => {
@@ -87,55 +132,65 @@ const CreatePost = () => {
             Back
           </Button>
         ) : (
-          <div className="w-10"></div>
+          <div className="w-10" />
         )}
       </div>
 
       <div className="flex-1 p-4 overflow-auto">
-        <p className="text-center mb-4">Select a photo to share</p>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-          {demoImages.map((image, index) => (
-            <div 
-              key={index} 
-              onClick={() => handleSelectImage(image)}
-              className="aspect-square cursor-pointer relative overflow-hidden rounded-md hover:opacity-90 transition-opacity"
-            >
-              <img 
-                src={image} 
-                alt={`Demo ${index}`} 
-                className="w-full h-full object-cover"
+        {step === 'select' ? (
+          <div className="flex flex-col items-center justify-center h-full gap-4">
+            <p className="text-center mb-4">Upload a photo or video</p>
+            <label className="cursor-pointer">
+              <input
+                type="file"
+                accept="image/*,video/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleFileSelect(file);
+                }}
               />
-              <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity">
-                <Image className="h-8 w-8 text-white" />
+              <div className="flex flex-col items-center gap-4 p-8 border-2 border-dashed rounded-lg hover:border-primary transition-colors">
+                <Upload className="h-8 w-8 text-muted-foreground" />
+                <span className="text-muted-foreground">Click to upload</span>
               </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex-1 flex flex-col">
-        {selectedImage && (
-          <div className="p-4 border-b">
-            <img
-              src={selectedImage}
-              alt="Selected"
-              className="w-full max-h-80 object-contain"
+            </label>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {mediaPreview && (
+              <div className="relative aspect-square w-full overflow-hidden rounded-md bg-muted">
+                {mediaType === 'image' ? (
+                  <img
+                    src={mediaPreview}
+                    alt="Preview"
+                    className="object-cover w-full h-full"
+                  />
+                ) : (
+                  <video
+                    src={mediaPreview}
+                    controls
+                    className="w-full h-full"
+                  />
+                )}
+              </div>
+            )}
+            <Textarea
+              placeholder="Write a caption... Use #hashtags to categorize your post"
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              className="w-full resize-none"
+              rows={4}
             />
+            <Button 
+              onClick={handleShare} 
+              className="w-full instagram-gradient text-white"
+              disabled={isUploading}
+            >
+              {isUploading ? "Uploading..." : "Share"}
+            </Button>
           </div>
         )}
-        <div className="p-4 flex-1">
-          <Textarea
-            placeholder="Write a caption..."
-            value={caption}
-            onChange={(e) => setCaption(e.target.value)}
-            className="w-full h-40 resize-none"
-          />
-        </div>
-        <div className="p-4 border-t">
-          <Button onClick={handleShare} className="w-full instagram-gradient text-white">
-            Share
-          </Button>
-        </div>
       </div>
     </div>
   );
