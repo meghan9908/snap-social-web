@@ -9,7 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { StoryData, ViewedStoryData, SupabaseQueryTables } from "@/types/supabase-types";
+import { StoryData, ViewedStoryData } from "@/types/supabase-types";
 
 interface Story {
   id: string;
@@ -35,29 +35,33 @@ const StoriesBar = () => {
 
   const fetchStories = async () => {
     try {
+      // Fetch stories that haven't expired
       const { data: storiesData, error } = await supabase
-        .from<SupabaseQueryTables["stories"]>("stories")
+        .from('stories')
         .select(`
           id,
           image_url,
           user_id,
           created_at,
           expires_at,
-          profiles(username, avatar_url)
+          profiles (username, avatar_url)
         `)
         .gte('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
+      // Get current user session
       const currentUserData = await supabase.auth.getSession();
       const userId = currentUserData?.data?.session?.user?.id || '';
 
+      // Fetch viewed stories for current user
       const { data: viewedData } = await supabase
-        .from<SupabaseQueryTables["viewed_stories"]>("viewed_stories")
+        .from('viewed_stories')
         .select('story_id')
         .eq('user_id', userId);
 
+      // Format stories data
       const formattedStories: Story[] = (storiesData || []).map(story => ({
         id: story.id,
         username: story.profiles?.username || 'unknown',
@@ -91,8 +95,7 @@ const StoriesBar = () => {
 
   const handleStoryUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setStoryUrl(e.target.value);
-    // For demo purposes, we'll set the preview to the URL directly
-    // In a real app, you'd validate that this is an image URL
+    // Set preview to the URL directly
     setStoryPreview(e.target.value);
   };
 
@@ -106,7 +109,7 @@ const StoriesBar = () => {
       return;
     }
 
-    // In a real app with Supabase, we would insert a new story to the database here
+    // Get current user session
     const currentUserData = await supabase.auth.getSession();
     const userId = currentUserData?.data?.session?.user?.id;
     
@@ -123,14 +126,16 @@ const StoriesBar = () => {
       const expiryDate = new Date();
       expiryDate.setHours(expiryDate.getHours() + 24);
       
+      // Insert new story
       await supabase
-        .from<SupabaseQueryTables["stories"]>("stories")
+        .from('stories')
         .insert({
           user_id: userId,
           image_url: storyUrl,
           expires_at: expiryDate.toISOString()
         });
       
+      // Refresh stories
       await fetchStories();
       
       toast({
@@ -153,14 +158,15 @@ const StoriesBar = () => {
     setCurrentStory(story);
     setIsViewStoryOpen(true);
     
-    // Mark story as viewed in Supabase if authenticated
+    // Mark story as viewed if authenticated
     const currentUserData = await supabase.auth.getSession();
     const userId = currentUserData?.data?.session?.user?.id;
     
     if (userId) {
       try {
+        // Mark story as viewed
         await supabase
-          .from<SupabaseQueryTables["viewed_stories"]>("viewed_stories")
+          .from('viewed_stories')
           .upsert({
             user_id: userId,
             story_id: story.id

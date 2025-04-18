@@ -13,8 +13,8 @@ export interface PostData {
   caption: string;
   likes_count: number;
   created_at: string;
-  profiles?: Profile;
   user_id: string;
+  profiles?: Profile;
 }
 
 export interface CommentData {

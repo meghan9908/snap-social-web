@@ -2,7 +2,7 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { PostData, CommentData, LikeData, SupabaseQueryTables } from '@/types/supabase-types';
+import { PostData, CommentData, LikeData } from '@/types/supabase-types';
 
 export interface Comment {
   id: string;
@@ -43,7 +43,7 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
   const fetchPosts = async () => {
     try {
       const { data: postsData, error: postsError } = await supabase
-        .from<SupabaseQueryTables["posts"]>("posts")
+        .from('posts')
         .select(`
           id,
           image_url,
@@ -51,7 +51,7 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
           likes_count,
           created_at,
           user_id,
-          profiles(username, avatar_url)
+          profiles (username, avatar_url)
         `)
         .order('created_at', { ascending: false });
 
@@ -62,18 +62,18 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
       const userId = currentUser?.data?.session?.user?.id;
 
       const { data: likesData } = await supabase
-        .from<SupabaseQueryTables["likes"]>("likes")
+        .from('likes')
         .select('post_id')
         .eq('user_id', userId || '');
 
       const { data: commentsData } = await supabase
-        .from<SupabaseQueryTables["comments"]>("comments")
+        .from('comments')
         .select(`
           id,
           post_id,
           text,
           created_at,
-          profiles(username)
+          profiles (username)
         `);
 
       // Transform the data
@@ -125,24 +125,24 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
 
       if (post.isLiked) {
         await supabase
-          .from<SupabaseQueryTables["likes"]>("likes")
+          .from('likes')
           .delete()
           .match({ post_id: id, user_id: userId });
 
         await supabase
-          .from<SupabaseQueryTables["posts"]>("posts")
+          .from('posts')
           .update({ likes_count: post.likes - 1 })
           .eq('id', id);
       } else {
         await supabase
-          .from<SupabaseQueryTables["likes"]>("likes")
+          .from('likes')
           .insert({
             post_id: id,
             user_id: userId
           });
 
         await supabase
-          .from<SupabaseQueryTables["posts"]>("posts")
+          .from('posts')
           .update({ likes_count: post.likes + 1 })
           .eq('id', id);
       }
@@ -166,7 +166,7 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       await supabase
-        .from<SupabaseQueryTables["comments"]>("comments")
+        .from('comments')
         .insert({
           post_id: postId,
           user_id: userId,
@@ -197,7 +197,7 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       await supabase
-        .from<SupabaseQueryTables["posts"]>("posts")
+        .from('posts')
         .insert({
           user_id: userId,
           image_url: post.imageUrl,
