@@ -1,9 +1,10 @@
+
 import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useAuth } from "@/context/ClerkUserContext";
 import { useUser } from "@clerk/clerk-react";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -58,13 +59,23 @@ const StoriesBar = () => {
         .select('story_id')
         .eq('user_id', userId);
 
-      const formattedStories: Story[] = (storiesData || []).map(story => ({
-        id: story.id,
-        username: story.profiles?.username || user?.username || 'unknown',
-        avatar: story.profiles?.avatar_url || user?.imageUrl || '',
-        viewed: (viewedData || []).some(view => view.story_id === story.id),
-        content: story.image_url
-      }));
+      const formattedStories: Story[] = (storiesData || []).map(story => {
+        // Handle case where profiles relation might not exist
+        const username = story.profiles?.username || 
+                       (story.user_id === userId && user?.username) || 
+                       'unknown';
+        const avatarUrl = story.profiles?.avatar_url || 
+                        (story.user_id === userId && user?.imageUrl) || 
+                        '';
+        
+        return {
+          id: story.id,
+          username: username,
+          avatar: avatarUrl,
+          viewed: (viewedData || []).some(view => view.story_id === story.id),
+          content: story.image_url
+        };
+      });
 
       setStories(formattedStories);
     } catch (error) {

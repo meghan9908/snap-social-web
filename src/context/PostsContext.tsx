@@ -77,24 +77,36 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
           profiles (username)
         `);
 
-      const formattedPosts: Post[] = (postsData || []).map(post => ({
-        id: post.id,
-        username: post.profiles?.username || user?.username || 'unknown',
-        userAvatar: post.profiles?.avatar_url || user?.imageUrl || '',
-        imageUrl: post.image_url,
-        caption: post.caption || '',
-        likes: post.likes_count || 0,
-        isLiked: (likesData || []).some(like => like.post_id === post.id),
-        comments: (commentsData || [])
-          .filter(comment => comment.post_id === post.id)
-          .map(comment => ({
-            id: comment.id,
-            username: comment.profiles?.username || user?.username || 'unknown',
-            text: comment.text,
-            timestamp: new Date(comment.created_at).toLocaleDateString()
-          })),
-        timestamp: new Date(post.created_at).toLocaleDateString()
-      }));
+      const formattedPosts: Post[] = (postsData || []).map(post => {
+        // Handle case where profiles relation might not exist
+        const username = post.profiles?.username || 
+                       (post.user_id === userId && user?.username) || 
+                       'unknown';
+        const avatarUrl = post.profiles?.avatar_url || 
+                        (post.user_id === userId && user?.imageUrl) || 
+                        '';
+        
+        return {
+          id: post.id,
+          username: username,
+          userAvatar: avatarUrl,
+          imageUrl: post.image_url,
+          caption: post.caption || '',
+          likes: post.likes_count || 0,
+          isLiked: (likesData || []).some(like => like.post_id === post.id),
+          comments: (commentsData || [])
+            .filter(comment => comment.post_id === post.id)
+            .map(comment => ({
+              id: comment.id,
+              username: comment.profiles?.username || 
+                      user?.username || 
+                      'unknown',
+              text: comment.text,
+              timestamp: new Date(comment.created_at).toLocaleDateString()
+            })),
+          timestamp: new Date(post.created_at).toLocaleDateString()
+        };
+      });
 
       setPosts(formattedPosts);
     } catch (error) {
