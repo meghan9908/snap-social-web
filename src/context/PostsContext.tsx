@@ -2,7 +2,7 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
-import { PostData, CommentData, LikeData } from '@/types/supabase-types';
+import { PostData, CommentData, LikeData, SupabaseQueryTables } from '@/types/supabase-types';
 
 export interface Comment {
   id: string;
@@ -43,7 +43,7 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
   const fetchPosts = async () => {
     try {
       const { data: postsData, error: postsError } = await supabase
-        .from('posts')
+        .from<SupabaseQueryTables["posts"]>("posts")
         .select(`
           id,
           image_url,
@@ -58,16 +58,16 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
       if (postsError) throw postsError;
 
       // Get user info for likes
-      const currentUser = await supabase.auth.getUser();
-      const userId = currentUser?.data?.user?.id;
+      const currentUser = await supabase.auth.getSession();
+      const userId = currentUser?.data?.session?.user?.id;
 
       const { data: likesData } = await supabase
-        .from('likes')
+        .from<SupabaseQueryTables["likes"]>("likes")
         .select('post_id')
         .eq('user_id', userId || '');
 
       const { data: commentsData } = await supabase
-        .from('comments')
+        .from<SupabaseQueryTables["comments"]>("comments")
         .select(`
           id,
           post_id,
@@ -77,15 +77,15 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
         `);
 
       // Transform the data
-      const formattedPosts: Post[] = (postsData as PostData[] || []).map(post => ({
+      const formattedPosts: Post[] = (postsData || []).map(post => ({
         id: post.id,
         username: post.profiles?.username || 'unknown',
         userAvatar: post.profiles?.avatar_url || '',
         imageUrl: post.image_url,
         caption: post.caption || '',
         likes: post.likes_count || 0,
-        isLiked: (likesData as LikeData[] || []).some(like => like.post_id === post.id),
-        comments: (commentsData as CommentData[] || [])
+        isLiked: (likesData || []).some(like => like.post_id === post.id),
+        comments: (commentsData || [])
           .filter(comment => comment.post_id === post.id)
           .map(comment => ({
             id: comment.id,
@@ -108,8 +108,8 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const likePost = async (id: string) => {
-    const currentUser = await supabase.auth.getUser();
-    const userId = currentUser?.data?.user?.id;
+    const currentUser = await supabase.auth.getSession();
+    const userId = currentUser?.data?.session?.user?.id;
     
     if (!userId) {
       toast({
@@ -125,21 +125,24 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
 
       if (post.isLiked) {
         await supabase
-          .from('likes')
+          .from<SupabaseQueryTables["likes"]>("likes")
           .delete()
           .match({ post_id: id, user_id: userId });
 
         await supabase
-          .from('posts')
+          .from<SupabaseQueryTables["posts"]>("posts")
           .update({ likes_count: post.likes - 1 })
           .eq('id', id);
       } else {
         await supabase
-          .from('likes')
-          .insert({ post_id: id, user_id: userId });
+          .from<SupabaseQueryTables["likes"]>("likes")
+          .insert({
+            post_id: id,
+            user_id: userId
+          });
 
         await supabase
-          .from('posts')
+          .from<SupabaseQueryTables["posts"]>("posts")
           .update({ likes_count: post.likes + 1 })
           .eq('id', id);
       }
@@ -156,14 +159,14 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addComment = async (postId: string, text: string) => {
-    const currentUser = await supabase.auth.getUser();
-    const userId = currentUser?.data?.user?.id;
+    const currentUser = await supabase.auth.getSession();
+    const userId = currentUser?.data?.session?.user?.id;
     
     if (!userId || !text.trim()) return;
 
     try {
       await supabase
-        .from('comments')
+        .from<SupabaseQueryTables["comments"]>("comments")
         .insert({
           post_id: postId,
           user_id: userId,
@@ -187,14 +190,14 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addPost = async (post: Omit<Post, 'id'>) => {
-    const currentUser = await supabase.auth.getUser();
-    const userId = currentUser?.data?.user?.id;
+    const currentUser = await supabase.auth.getSession();
+    const userId = currentUser?.data?.session?.user?.id;
     
     if (!userId) return;
 
     try {
       await supabase
-        .from('posts')
+        .from<SupabaseQueryTables["posts"]>("posts")
         .insert({
           user_id: userId,
           image_url: post.imageUrl,

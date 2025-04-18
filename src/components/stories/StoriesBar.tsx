@@ -9,7 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { StoryData, ViewedStoryData } from "@/types/supabase-types";
+import { StoryData, ViewedStoryData, SupabaseQueryTables } from "@/types/supabase-types";
 
 interface Story {
   id: string;
@@ -36,7 +36,7 @@ const StoriesBar = () => {
   const fetchStories = async () => {
     try {
       const { data: storiesData, error } = await supabase
-        .from('stories')
+        .from<SupabaseQueryTables["stories"]>("stories")
         .select(`
           id,
           image_url,
@@ -50,19 +50,19 @@ const StoriesBar = () => {
 
       if (error) throw error;
 
-      const currentUser = await supabase.auth.getUser();
-      const userId = currentUser?.data?.user?.id || '';
+      const currentUserData = await supabase.auth.getSession();
+      const userId = currentUserData?.data?.session?.user?.id || '';
 
       const { data: viewedData } = await supabase
-        .from('viewed_stories')
+        .from<SupabaseQueryTables["viewed_stories"]>("viewed_stories")
         .select('story_id')
         .eq('user_id', userId);
 
-      const formattedStories: Story[] = (storiesData as StoryData[] || []).map(story => ({
+      const formattedStories: Story[] = (storiesData || []).map(story => ({
         id: story.id,
         username: story.profiles?.username || 'unknown',
         avatar: story.profiles?.avatar_url || '',
-        viewed: (viewedData as ViewedStoryData[] || []).some(view => view.story_id === story.id),
+        viewed: (viewedData || []).some(view => view.story_id === story.id),
         content: story.image_url
       }));
 
@@ -107,8 +107,8 @@ const StoriesBar = () => {
     }
 
     // In a real app with Supabase, we would insert a new story to the database here
-    const currentUser = await supabase.auth.getUser();
-    const userId = currentUser?.data?.user?.id;
+    const currentUserData = await supabase.auth.getSession();
+    const userId = currentUserData?.data?.session?.user?.id;
     
     if (!userId) {
       toast({
@@ -124,7 +124,7 @@ const StoriesBar = () => {
       expiryDate.setHours(expiryDate.getHours() + 24);
       
       await supabase
-        .from('stories')
+        .from<SupabaseQueryTables["stories"]>("stories")
         .insert({
           user_id: userId,
           image_url: storyUrl,
@@ -154,13 +154,13 @@ const StoriesBar = () => {
     setIsViewStoryOpen(true);
     
     // Mark story as viewed in Supabase if authenticated
-    const currentUser = await supabase.auth.getUser();
-    const userId = currentUser?.data?.user?.id;
+    const currentUserData = await supabase.auth.getSession();
+    const userId = currentUserData?.data?.session?.user?.id;
     
     if (userId) {
       try {
         await supabase
-          .from('viewed_stories')
+          .from<SupabaseQueryTables["viewed_stories"]>("viewed_stories")
           .upsert({
             user_id: userId,
             story_id: story.id
@@ -227,7 +227,7 @@ const StoriesBar = () => {
                 </div>
               </div>
               <span className="text-xs truncate w-16 text-center">{
-                story.id === "1" && user ? "Your story" : story.username
+                user && story.username === user.username ? "Your story" : story.username
               }</span>
             </div>
           ))}
