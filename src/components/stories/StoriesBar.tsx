@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -8,6 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { StoryData, ViewedStoryData } from "@/types/supabase-types";
 
 interface Story {
   id: string;
@@ -38,23 +40,29 @@ const StoriesBar = () => {
         .select(`
           id,
           image_url,
-          profiles:user_id (username, avatar_url)
+          user_id,
+          created_at,
+          expires_at,
+          profiles(username, avatar_url)
         `)
         .gte('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
+      const currentUser = await supabase.auth.getUser();
+      const userId = currentUser?.data?.user?.id || '';
+
       const { data: viewedData } = await supabase
         .from('viewed_stories')
         .select('story_id')
-        .eq('user_id', supabase.auth.getUser()?.data?.user?.id || '');
+        .eq('user_id', userId);
 
-      const formattedStories = storiesData.map(story => ({
+      const formattedStories: Story[] = (storiesData as StoryData[] || []).map(story => ({
         id: story.id,
         username: story.profiles?.username || 'unknown',
         avatar: story.profiles?.avatar_url || '',
-        viewed: viewedData?.some(view => view.story_id === story.id) || false,
+        viewed: (viewedData as ViewedStoryData[] || []).some(view => view.story_id === story.id),
         content: story.image_url
       }));
 
@@ -88,7 +96,7 @@ const StoriesBar = () => {
     setStoryPreview(e.target.value);
   };
 
-  const handleSubmitStory = () => {
+  const handleSubmitStory = async () => {
     if (!storyUrl) {
       toast({
         title: "Missing image",
@@ -98,36 +106,76 @@ const StoriesBar = () => {
       return;
     }
 
-    // Create a new story and add it to the beginning of the array
-    const newStory = {
-      id: Date.now().toString(),
-      username: currentUser?.username || "your_story",
-      avatar: user?.imageUrl || "",
-      viewed: false,
-      content: storyUrl
-    };
-
-    // Add the new story and update the first story to be the user's story
-    setStories([newStory, ...stories.filter(story => story.id !== "1")]);
+    // In a real app with Supabase, we would insert a new story to the database here
+    const currentUser = await supabase.auth.getUser();
+    const userId = currentUser?.data?.user?.id;
     
-    toast({
-      title: "Story added",
-      description: "Your story has been added successfully!",
-    });
+    if (!userId) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to add a story",
+      });
+      return;
+    }
     
-    closeAddStory();
+    try {
+      // Set expiry time to 24 hours from now
+      const expiryDate = new Date();
+      expiryDate.setHours(expiryDate.getHours() + 24);
+      
+      await supabase
+        .from('stories')
+        .insert({
+          user_id: userId,
+          image_url: storyUrl,
+          expires_at: expiryDate.toISOString()
+        });
+      
+      await fetchStories();
+      
+      toast({
+        title: "Story added",
+        description: "Your story has been added successfully!",
+      });
+      
+      closeAddStory();
+    } catch (error) {
+      console.error('Error adding story:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add your story. Please try again later.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleViewStory = (story: Story) => {
+  const handleViewStory = async (story: Story) => {
     setCurrentStory(story);
     setIsViewStoryOpen(true);
     
-    // Mark story as viewed
-    setStories(prevStories => 
-      prevStories.map(s => 
-        s.id === story.id ? { ...s, viewed: true } : s
-      )
-    );
+    // Mark story as viewed in Supabase if authenticated
+    const currentUser = await supabase.auth.getUser();
+    const userId = currentUser?.data?.user?.id;
+    
+    if (userId) {
+      try {
+        await supabase
+          .from('viewed_stories')
+          .upsert({
+            user_id: userId,
+            story_id: story.id
+          });
+        
+        // Update local state
+        setStories(prevStories => 
+          prevStories.map(s => 
+            s.id === story.id ? { ...s, viewed: true } : s
+          )
+        );
+      } catch (error) {
+        console.error('Error marking story as viewed:', error);
+      }
+    }
   };
 
   const closeViewStory = () => {

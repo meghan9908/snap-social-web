@@ -2,6 +2,7 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { PostData, CommentData, LikeData } from '@/types/supabase-types';
 
 export interface Comment {
   id: string;
@@ -49,36 +50,42 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
           caption,
           likes_count,
           created_at,
-          profiles:user_id (username, avatar_url)
+          user_id,
+          profiles(username, avatar_url)
         `)
         .order('created_at', { ascending: false });
 
       if (postsError) throw postsError;
 
+      // Get user info for likes
+      const currentUser = await supabase.auth.getUser();
+      const userId = currentUser?.data?.user?.id;
+
       const { data: likesData } = await supabase
         .from('likes')
         .select('post_id')
-        .eq('user_id', supabase.auth.getUser()?.data?.user?.id || '');
+        .eq('user_id', userId || '');
 
       const { data: commentsData } = await supabase
         .from('comments')
         .select(`
           id,
+          post_id,
           text,
           created_at,
-          profiles:user_id (username)
-        `)
-        .in('post_id', postsData?.map(post => post.id) || []);
+          profiles(username)
+        `);
 
-      const formattedPosts = postsData?.map(post => ({
+      // Transform the data
+      const formattedPosts: Post[] = (postsData as PostData[] || []).map(post => ({
         id: post.id,
         username: post.profiles?.username || 'unknown',
         userAvatar: post.profiles?.avatar_url || '',
         imageUrl: post.image_url,
         caption: post.caption || '',
         likes: post.likes_count || 0,
-        isLiked: likesData?.some(like => like.post_id === post.id) || false,
-        comments: (commentsData || [])
+        isLiked: (likesData as LikeData[] || []).some(like => like.post_id === post.id),
+        comments: (commentsData as CommentData[] || [])
           .filter(comment => comment.post_id === post.id)
           .map(comment => ({
             id: comment.id,
@@ -87,7 +94,7 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
             timestamp: new Date(comment.created_at).toLocaleDateString()
           })),
         timestamp: new Date(post.created_at).toLocaleDateString()
-      })) || [];
+      }));
 
       setPosts(formattedPosts);
     } catch (error) {
@@ -101,7 +108,9 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const likePost = async (id: string) => {
-    const userId = supabase.auth.getUser()?.data?.user?.id;
+    const currentUser = await supabase.auth.getUser();
+    const userId = currentUser?.data?.user?.id;
+    
     if (!userId) {
       toast({
         title: "Authentication required",
@@ -147,7 +156,9 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addComment = async (postId: string, text: string) => {
-    const userId = supabase.auth.getUser()?.data?.user?.id;
+    const currentUser = await supabase.auth.getUser();
+    const userId = currentUser?.data?.user?.id;
+    
     if (!userId || !text.trim()) return;
 
     try {
@@ -176,7 +187,9 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const addPost = async (post: Omit<Post, 'id'>) => {
-    const userId = supabase.auth.getUser()?.data?.user?.id;
+    const currentUser = await supabase.auth.getUser();
+    const userId = currentUser?.data?.user?.id;
+    
     if (!userId) return;
 
     try {
