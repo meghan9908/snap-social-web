@@ -1,15 +1,14 @@
-
 import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useAuth } from "@/context/ClerkUserContext";
 import { useUser } from "@clerk/clerk-react";
-import { PlusCircle, Image, X } from "lucide-react";
+import { PlusCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { StoryData, ViewedStoryData } from "@/types/supabase-types";
+import { StoryData } from "@/types/supabase-types";
 
 interface Story {
   id: string;
@@ -51,21 +50,18 @@ const StoriesBar = () => {
 
       if (error) throw error;
 
-      // Get current user session
       const currentUserData = await supabase.auth.getSession();
       const userId = currentUserData?.data?.session?.user?.id || '';
 
-      // Fetch viewed stories for current user
       const { data: viewedData } = await supabase
         .from('viewed_stories')
         .select('story_id')
         .eq('user_id', userId);
 
-      // Format stories data
       const formattedStories: Story[] = (storiesData || []).map(story => ({
         id: story.id,
-        username: story.profiles?.username || 'unknown',
-        avatar: story.profiles?.avatar_url || '',
+        username: story.profiles?.username || user?.username || 'unknown',
+        avatar: story.profiles?.avatar_url || user?.imageUrl || '',
         viewed: (viewedData || []).some(view => view.story_id === story.id),
         content: story.image_url
       }));
@@ -95,7 +91,6 @@ const StoriesBar = () => {
 
   const handleStoryUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setStoryUrl(e.target.value);
-    // Set preview to the URL directly
     setStoryPreview(e.target.value);
   };
 
@@ -109,7 +104,6 @@ const StoriesBar = () => {
       return;
     }
 
-    // Get current user session
     const currentUserData = await supabase.auth.getSession();
     const userId = currentUserData?.data?.session?.user?.id;
     
@@ -122,11 +116,9 @@ const StoriesBar = () => {
     }
     
     try {
-      // Set expiry time to 24 hours from now
       const expiryDate = new Date();
       expiryDate.setHours(expiryDate.getHours() + 24);
       
-      // Insert new story
       await supabase
         .from('stories')
         .insert({
@@ -135,7 +127,6 @@ const StoriesBar = () => {
           expires_at: expiryDate.toISOString()
         });
       
-      // Refresh stories
       await fetchStories();
       
       toast({
@@ -158,13 +149,11 @@ const StoriesBar = () => {
     setCurrentStory(story);
     setIsViewStoryOpen(true);
     
-    // Mark story as viewed if authenticated
     const currentUserData = await supabase.auth.getSession();
     const userId = currentUserData?.data?.session?.user?.id;
     
     if (userId) {
       try {
-        // Mark story as viewed
         await supabase
           .from('viewed_stories')
           .upsert({
@@ -172,7 +161,6 @@ const StoriesBar = () => {
             story_id: story.id
           });
         
-        // Update local state
         setStories(prevStories => 
           prevStories.map(s => 
             s.id === story.id ? { ...s, viewed: true } : s
@@ -193,7 +181,6 @@ const StoriesBar = () => {
     <div className="py-4 mb-1">
       <ScrollArea className="w-full">
         <div className="flex space-x-4 px-4">
-          {/* Add story button (only for authenticated users) */}
           {user && (
             <div className="flex flex-col items-center">
               <div className="relative mb-1 cursor-pointer" onClick={handleAddStory}>
@@ -213,7 +200,6 @@ const StoriesBar = () => {
             </div>
           )}
 
-          {/* Display stories */}
           {stories.map((story) => (
             <div 
               key={story.id} 
@@ -241,7 +227,6 @@ const StoriesBar = () => {
         <ScrollBar orientation="horizontal" />
       </ScrollArea>
 
-      {/* Add Story Dialog */}
       <Dialog open={isAddStoryOpen} onOpenChange={closeAddStory}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -297,7 +282,6 @@ const StoriesBar = () => {
         </DialogContent>
       </Dialog>
 
-      {/* View Story Dialog */}
       <Dialog open={isViewStoryOpen} onOpenChange={closeViewStory}>
         <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden max-h-[80vh]">
           <div className="relative aspect-[9/16] w-full overflow-hidden bg-black">

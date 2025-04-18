@@ -3,6 +3,7 @@ import React, { createContext, useState, useContext, ReactNode, useEffect } from
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { PostData, CommentData, LikeData } from '@/types/supabase-types';
+import { useUser } from '@clerk/clerk-react';
 
 export interface Comment {
   id: string;
@@ -35,6 +36,7 @@ const PostsContext = createContext<PostsContextType | undefined>(undefined);
 export const PostsProvider = ({ children }: { children: ReactNode }) => {
   const [posts, setPosts] = useState<Post[]>([]);
   const { toast } = useToast();
+  const { user } = useUser();
 
   useEffect(() => {
     fetchPosts();
@@ -57,7 +59,6 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
 
       if (postsError) throw postsError;
 
-      // Get user info for likes
       const currentUser = await supabase.auth.getSession();
       const userId = currentUser?.data?.session?.user?.id;
 
@@ -76,11 +77,10 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
           profiles (username)
         `);
 
-      // Transform the data
       const formattedPosts: Post[] = (postsData || []).map(post => ({
         id: post.id,
-        username: post.profiles?.username || 'unknown',
-        userAvatar: post.profiles?.avatar_url || '',
+        username: post.profiles?.username || user?.username || 'unknown',
+        userAvatar: post.profiles?.avatar_url || user?.imageUrl || '',
         imageUrl: post.image_url,
         caption: post.caption || '',
         likes: post.likes_count || 0,
@@ -89,7 +89,7 @@ export const PostsProvider = ({ children }: { children: ReactNode }) => {
           .filter(comment => comment.post_id === post.id)
           .map(comment => ({
             id: comment.id,
-            username: comment.profiles?.username || 'unknown',
+            username: comment.profiles?.username || user?.username || 'unknown',
             text: comment.text,
             timestamp: new Date(comment.created_at).toLocaleDateString()
           })),
@@ -234,3 +234,5 @@ export const usePosts = () => {
   }
   return context;
 };
+
+export default PostsContext;
