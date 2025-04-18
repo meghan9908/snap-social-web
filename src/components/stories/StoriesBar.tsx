@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useAuth } from "@/context/ClerkUserContext";
@@ -8,7 +7,7 @@ import { PlusCircle, Image, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useState as useReactState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Story {
   id: string;
@@ -18,61 +17,57 @@ interface Story {
   content?: string;
 }
 
-const stories: Story[] = [
-  {
-    id: "1",
-    username: "your_story",
-    avatar: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=200&auto=format",
-    viewed: false,
-    content: "https://images.unsplash.com/photo-1553095066-5014bc7b7f2d?q=80&w=1000&auto=format",
-  },
-  {
-    id: "2",
-    username: "jane_smith",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200&auto=format",
-    viewed: true,
-    content: "https://images.unsplash.com/photo-1610128114197-485d933885c5?q=80&w=1000&auto=format",
-  },
-  {
-    id: "3",
-    username: "travel_guy",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=200&auto=format",
-    viewed: false,
-    content: "https://images.unsplash.com/photo-1682685797660-3d847833c6db?q=80&w=1000&auto=format",
-  },
-  {
-    id: "4",
-    username: "photography",
-    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=200&auto=format",
-    viewed: true,
-    content: "https://images.unsplash.com/photo-1501854140801-50d01698950b?q=80&w=1000&auto=format",
-  },
-  {
-    id: "5",
-    username: "food_lover",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format",
-    viewed: false,
-    content: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=1000&auto=format",
-  },
-  {
-    id: "6",
-    username: "fashion_blog",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200&auto=format",
-    viewed: false,
-    content: "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?q=80&w=1000&auto=format",
-  },
-];
-
 const StoriesBar = () => {
   const { user } = useUser();
   const { currentUser } = useAuth();
-  
-  const [userStories, setUserStories] = useState<Story[]>(stories);
+  const [stories, setStories] = useState<Story[]>([]);
   const [isAddStoryOpen, setIsAddStoryOpen] = useState(false);
   const [isViewStoryOpen, setIsViewStoryOpen] = useState(false);
   const [currentStory, setCurrentStory] = useState<Story | null>(null);
   const [storyUrl, setStoryUrl] = useState("");
   const [storyPreview, setStoryPreview] = useState("");
+
+  useEffect(() => {
+    fetchStories();
+  }, []);
+
+  const fetchStories = async () => {
+    try {
+      const { data: storiesData, error } = await supabase
+        .from('stories')
+        .select(`
+          id,
+          image_url,
+          profiles:user_id (username, avatar_url)
+        `)
+        .gte('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const { data: viewedData } = await supabase
+        .from('viewed_stories')
+        .select('story_id')
+        .eq('user_id', supabase.auth.getUser()?.data?.user?.id || '');
+
+      const formattedStories = storiesData.map(story => ({
+        id: story.id,
+        username: story.profiles?.username || 'unknown',
+        avatar: story.profiles?.avatar_url || '',
+        viewed: viewedData?.some(view => view.story_id === story.id) || false,
+        content: story.image_url
+      }));
+
+      setStories(formattedStories);
+    } catch (error) {
+      console.error('Error fetching stories:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch stories. Please try again later.",
+        variant: "destructive"
+      });
+    }
+  };
 
   const handleAddStory = () => {
     if (user) {
@@ -113,7 +108,7 @@ const StoriesBar = () => {
     };
 
     // Add the new story and update the first story to be the user's story
-    setUserStories([newStory, ...userStories.filter(story => story.id !== "1")]);
+    setStories([newStory, ...stories.filter(story => story.id !== "1")]);
     
     toast({
       title: "Story added",
@@ -128,7 +123,7 @@ const StoriesBar = () => {
     setIsViewStoryOpen(true);
     
     // Mark story as viewed
-    setUserStories(prevStories => 
+    setStories(prevStories => 
       prevStories.map(s => 
         s.id === story.id ? { ...s, viewed: true } : s
       )
@@ -165,7 +160,7 @@ const StoriesBar = () => {
           )}
 
           {/* Display stories */}
-          {userStories.map((story) => (
+          {stories.map((story) => (
             <div 
               key={story.id} 
               className="flex flex-col items-center"
